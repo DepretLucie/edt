@@ -1,0 +1,27 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Liste des professeurs{% endblock %}
+
+{% block body %}
+
+<div class="professeurs">
+    <h1>Professeurs</h1>
+    <a href="{{ url('professeur_create') }}">Ajouter un professeur</a>
+    <table>
+        <tbody>
+            {% for professeur in professeurs %}
+                <tr>
+                    <td>{{ professeur.id }} </td>
+                    <td>{{ professeur.nom }} </td>
+                    <td>{{ professeur.prenom }} </td>
+                    <td>{{ professeur.mail }} </td>   
+                    <td>
+                        <a href="{{ url('professeur_edit', {'id': professeur.id }) }}">Editer</a>
+                        <a href="{{ url('professeur_delete', {'id': professeur.id }) }}">Supprimer</a>
+                    </td>                 
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

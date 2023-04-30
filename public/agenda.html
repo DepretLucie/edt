@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Agenda</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+        <link rel="stylesheet" href="style.css">
+        <script src="https://kit.fontawesome.com/b04b96ab43.js" crossorigin="anonymous"></script>
+        <script type="text/x-template" id="modal-template">
+            <div class="modal-mask">
+                <div class="modal-wrapper">
+                    <div class="modal-container">
+                        <div class="modal-header">
+                            <slot name="header">
+                                
+                            </slot>
+                        </div>  
+                
+                        <div class="modal-body">
+                            <slot name="body">
+                                default body
+                            </slot>
+                        </div>
+                
+                        <div class="modal-footer">
+                            <slot name="footer">
+                                
+                            </slot>
+                        </div>
+
+                        <slot name="note">
+                                
+                        </slot>
+                    </div>
+                </div>
+            </div>
+        </script>
+    </head>
+    <body>
+        <div id="app">
+            <div class="page">
+                <nav class="page__menu page__custom-settings menu">
+                    <ul class="menu__list r-list">
+                        <li class="menu__group"><a href="agenda.html" class="menu__link r-link text-underlined">Agenda</a></li>
+                        <li class="menu__group"><a href="professeur.html" class="menu__link r-link text-underlined">Professeurs</a></li>
+                        <li class="menu__group"><a href="matiere.html" class="menu__link r-link text-underlined">Matières</a></li>
+                        <li class="menu__group menu__link text-underlined" style="position: absolute; right: 0; color: white" @click="calendrier()">{{ dateDuJour }}</li>
+                    </ul>
+                </nav>
+            </div>
+            
+            <input v-if="dateTimePicker" style="position:absolute;right: 0;" type="date" v-model="myDate" @change="changementValeurCalendrier">
+            <br v-if="dateTimePicker">
+            
+            <transition name="modal">
+                <modal v-if="showModal" @close="showModal = false">
+                    <template v-slot:header>
+                        <h5>Détails</h5>
+                        <button class="btn btn-secondary mt-3" @click="closePopUp">
+                            X
+                        </button>
+                    </template>
+                    <template v-slot:body>
+                        <h6>{{ cours.matiere.reference }} - {{ cours.matiere.titre }}</h6>
+                        <h6 v-if="cours.duree%2==0">Durée : {{ (cours.duree*30)/60 }}h00</h6>
+                        <h6 v-else>Durée : {{ ((cours.duree-1)*30)/60 }}h{{ 30 }}</h6>
+                        <h6>Enseignant : {{ cours.professeur.prenom }} {{ cours.professeur.nom }}</h6>
+                        <h6>{{ cours.type }} en salle {{ cours.salle.numero }}</h6>
+                    </template>
+                    <template v-slot:footer>
+                        <a><button class="btn btn-secondary mt-3" @click="activateDesactivateNote()">Noter le cours</button></a>
+                        <a><button class="btn btn-secondary mt-3" @click="activateDesactivateAvis()">Noter le professeur</button></a>
+                    </template>
+                    <template v-slot:note>
+                        <div class="modal-note" v-if="noteCours">
+                            <form v-on:submit.prevent="postNote(cours)" class="mb-5">
+                                <div class="form-group">
+                                    <label>Note</label>
+                                    <select class="form-control" v-model="nouvelleNote.note">
+                                        <option>0</option>
+                                        <option>1</option>
+                                        <option>2</option>
+                                        <option>3</option>
+                                        <option>4</option>
+                                        <option>5</option>
+                                    </select>
+                                </div>
+                                <br>
+                                <div class="form-group">
+                                    <label>Mail</label>
+                                    <input type="email" class="form-control" v-model="nouvelleNote.mail_etudiant" required>
+                                </div>
+                                <ul class="text-danger">
+                                    <li v-for="error in errors">{{ error }}</li>
+                                </ul>
+                                <br>
+                                <div class="form-group">
+                                    <input type="submit" class="btn btn-secondary mt-3" value="Ajouter la note">
+                                </div>                                
+                            </form>
+                        </div>
+
+                        <div class="modal-note" v-if="noteProf">
+                            <form v-on:submit.prevent="postAvis(cours.professeur.id)" class="mb-5">
+                                <div class="form-group">
+                                    <label>Note</label>
+                                    <select class="form-control" v-model="nouvelAvis.note">
+                                        <option>0</option>
+                                        <option>1</option>
+                                        <option>2</option>
+                                        <option>3</option>
+                                        <option>4</option>
+                                        <option>5</option>
+                                    </select>
+                                </div>
+                                <br>
+                                <div class="form-group">
+                                    <label>Commentaire</label>
+                                    <textarea class="form-control" v-model="nouvelAvis.commentaire" required></textarea>
+                                </div>
+                                <br>
+                                <div class="form-group">
+                                    <label>Mail</label>
+                                    <input type="email" class="form-control" v-model="nouvelAvis.mail_etudiant" required>
+                                </div>
+                                <ul class="text-danger">
+                                    <li v-for="error in errors">{{ error }}</li>
+                                </ul>
+                                <br>
+                                <div class="form-group">
+                                    <input type="submit" class="btn btn-secondary mt-3" value="Ajouter un avis">
+                                </div>
+                            </form>
+                        </div>
+                    </template>
+                </modal>
+            </transition>
+
+            <div class="carousel slide" data-ride="carousel">
+                <p class="carousel-control-prev" style="color:black; width: 10%;" role="button" data-slide="prev" v-on:click="precedent()">
+                    <span aria-hidden="true" class="fa-solid fa-chevron-left"></span>
+                </p>
+                <p class="carousel-control-next" style="color:black;width: 10%;" role="button" data-slide="next" v-on:click="suivant()">
+                    <span aria-hidden="true" class="fa-solid fa-chevron-right"></span>
+                </p>
+            
+                <div class="schedules">
+                    <table>
+                        <tr v-for="horaire in listeHoraire">
+                            <th>{{ horaire }}</th>
+                            <template v-for="cours in listeCours">
+                                <td  v-if="verificationHoraire(horaire, cours)" colspan="4" :rowspan="cours.duree" class="stage-saturn" v-on:click="showPopup(cours)">{{ cours.matiere.reference }} - {{cours.matiere.titre}}</td>
+                            </template>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+        <script>
+            const app = Vue.createApp({
+                data() {
+                    return {
+                        apiBase: 'http://localhost:8000/api/cours',
+                        dateDuJourCourant: null,
+                        dateDuJour: null,
+                        cours: null,
+                        showModal: false,
+                        nouvelleNote: {},
+                        nouvelAvis: {},
+                        noteCours: false,
+                        noteProf:false,
+                        dateTimePicker: false,
+                        myDate:new Date().toISOString().substr(0, 10),
+                        listeCours: [],
+                        errors: [],
+                        listeHoraire:["08h00", "08h30", "09h00", "09h30", "10h00", "10h30", "11h00", "11h30", "12h00", "12h30", "13h00", "13h30", "14h00", "14h30", "15h00", "15h30", "16h00", "16h30", "17h00", "17h30", "18h00"]
+                    }
+                },
+
+                methods: {
+                    getDate: function() {
+                        this.dateDuJourCourant = new Date();
+                        this.dateDuJour = this.dateDuJourCourant.toLocaleDateString("fr");
+                    },
+
+                    getCours: function() {
+                        var dateCourant = this.dateDuJourCourant.getFullYear() + "-" + ("0"+(this.dateDuJourCourant.getMonth()+1)).slice(-2) + "-" + ("0"+this.dateDuJourCourant.getDate()).slice(-2);
+                        axios.get(this.apiBase + '/date', {params: {date: dateCourant}})
+                            .then(response => {
+                                this.listeCours = response.data;
+                                this.calculDuree();
+                            })
+                            .catch(error => {
+                                console.log(error)
+                            })
+                    },
+
+                    precedent: function() {
+                        this.dateDuJourCourant.setDate(this.dateDuJourCourant.getDate()-1);
+                        this.dateDuJour = this.dateDuJourCourant.toLocaleDateString("fr");
+                        this.myDate = new Date(this.dateDuJourCourant).toISOString().substr(0, 10);
+                        this.getCours();
+                    },
+
+                    suivant: function() {
+                        this.dateDuJourCourant.setDate(this.dateDuJourCourant.getDate()+1);
+                        this.dateDuJour = this.dateDuJourCourant.toLocaleDateString("fr");
+                        this.myDate = new Date(this.dateDuJourCourant).toISOString().substr(0, 10);
+                        this.getCours();
+                    },
+
+                    verificationHoraire: function(heure,cours) {
+                        if(cours != undefined || cours != null) {
+                            var heureDebut = ('0' + new Date(cours["dateHeureDebut"]["date"]).getHours()).slice(-2);
+                            var minuteDebut = ('0' + new Date(cours["dateHeureDebut"]["date"]).getMinutes()).slice(-2);
+                            if(heureDebut == heure.slice(0,2) && minuteDebut == heure.slice(-2)) {
+                                return true;
+                            }
+                        }
+                        return false; 
+                    },
+
+                    calculDuree: function() {
+                        for(var i = 0; i< this.listeCours.length;i++) {
+                            var heureDebut = new Date(this.listeCours[i]["dateHeureDebut"]["date"]);
+                            var heureFin = new Date(this.listeCours[i]["dateHeureFin"]["date"]);
+                            var duree = (heureFin.getHours() * 60 + heureFin.getMinutes()) - (heureDebut.getHours() * 60 + heureDebut.getMinutes())
+                            this.listeCours[i]["duree"] = duree/30;
+                        }
+                    },
+
+                    showPopup: function(cours) {
+                        this.cours = cours;
+                        this.showModal = true;
+                    },
+
+                    showNote: function(){
+                        this.noteCours = cours;
+                    },
+
+                    newNote: function () {
+                        return {
+                            note: 0,
+                            mail_etudiant: ''
+                        }
+                    },
+
+                    newAvis: function () {
+                        return {
+                            note: 0,
+                            commentaire:'',
+                            mail_etudiant: ''
+                        }
+                    },
+
+                    postAvis: function (id) {
+                        this.errors = []
+                        axios.post('http://localhost:8000/api/professeurs/' + id + '/avis', this.nouvelAvis)
+                            .then(response => {
+                                this.nouvelAvis = this.newAvis();
+                                this.activateDesactivateAvis();
+                            })
+                            .catch(error => {
+                                this.errors = Object.values(error.response.data)
+                            })
+                    },
+
+                    postNote: function(cours){
+                        this.errors = []
+                        axios.post(this.apiBase + '/' + cours.id + '/note', this.nouvelleNote)
+                            .then(response => {
+                                this.nouvelleNote = this.newNote();
+                                this.activateDesactivateNote();
+                            })
+                            .catch(error => {
+                                this.errors = Object.values(error.response.data)
+                            })
+                    },
+                    
+                    activateDesactivateNote: function(){
+                        this.errors = [];
+                        this.noteProf = false;
+                        this.noteCours = !this.noteCours;
+                    },
+
+                    activateDesactivateAvis: function(){
+                        this.errors = [];
+                        this.noteCours = false;
+                        this.noteProf = !this.noteProf;
+                    },
+
+                    closePopUp: function(){
+                        this.noteCours = false;
+                        this.noteProf = false;
+                        this.showModal = false;
+                    },
+
+                    calendrier: function(){
+                        this.dateTimePicker = !this.dateTimePicker;
+                        this.myDate = new Date(this.dateDuJourCourant).toISOString().substr(0, 10);
+                    },
+
+                    changementValeurCalendrier: function(){
+                        this.dateDuJourCourant = new Date(this.myDate);
+                        this.dateDuJour = this.myDate.split('-')[2]+"/"+this.myDate.split('-')[1]+"/"+this.myDate.split('-')[0];
+                        this.getCours();
+                    }
+                },
+
+                mounted() {
+                    this.getDate();
+                    this.getCours();
+                }
+            });
+            
+            app.component("modal", { 
+                template: "#modal-template"
+            });
+
+            app.mount('#app');
+
+        </script>
+    </body>
+</html>
